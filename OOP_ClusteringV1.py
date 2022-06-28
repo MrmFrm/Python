@@ -4,6 +4,7 @@
 # Clustering Tutorial: https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
 
 # Import of packages needed for the code
+
 import numpy as np # library adding support for large, multi-dimensional arrays and matrices
 import os # to read (or write in) files
 import csv # import to read csv files
@@ -38,13 +39,11 @@ cluData.plot(Z, type="dendo_truncated", criterion = 'maxclust', max_d = 7)
 cluData.plot(Z, type="dendo_fancy")
 cluData.plot(Z, type="dendo_fancy", criterion = 'maxclust', max_d = 7)
 
-
-
 # TODO fehler beheben:
 # das Setzen von timeSeries = True ohne einbinden von anderen Daten sollte zu keiner Änderung von df führen!
-#cluData2 = ClusteringData(demandData.allRegionsNuts3, timeSeries = True, year = 2050, szenario = 'TN-H2-G')
-#Z2 = cluData2.calculateCluster()
-#cluData2.plot(Z, type="dendogram")
+# cluData2 = ClusteringData(demandData.allRegionsNuts3, timeSeries = True, year = 2050, szenario = 'TN-H2-G')
+# Z2 = cluData2.calculateCluster()
+# cluData2.plot(Z, type="dendogram")
 # Problem: Elec. Data nicht gleich! cluData2.df != cluData.df, + warum steht Elec. hier links?
 
 

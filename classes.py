@@ -1,4 +1,4 @@
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler #py -m pip install sklearn
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 
@@ -95,7 +95,7 @@ class ExcelSheet:
                     self.getTS(list_NUTS3 = self.allRegionsNuts3, regions2Compare = self.getRegionNames(data=self.all[0].ts_list))
                     
                 else:
-                    self.getTS(list_NUTS3.allRegionsNuts3)
+                    self.getTS(list_NUTS3= self.allRegionsNuts3)
 
 
 
