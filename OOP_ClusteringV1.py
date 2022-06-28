@@ -1,4 +1,3 @@
-# 
 # OOP Clustering Code: H2 demand + el. demand
 # OOP Tutorial for Python: https://www.youtube.com/watch?v=Ej_02ICOIgs
 # Clustering Tutorial: https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
