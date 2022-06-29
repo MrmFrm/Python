@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import numpy as np
 
+# TODO add Readme file mit links zum Wiki + sonstigen Tipps von Eidelloth Stefan
+# TODO Ordnerstruktur wie von Stefan empfohlen ( src, test, ...)
 
 # Class to load data from Excel file and to generate objects of class RegionNuts3 for each row
 class ExcelSheet:
@@ -13,7 +15,7 @@ class ExcelSheet:
     # List which includes all "ExcelSheet" objects, that are generated
     all = []
     # Constructor
-    def __init__(self, path = '../data/ISI/web_nuts3_energietraeger.xlsx' ):
+    def __init__(self, path = '../data/web_nuts3_energietraeger.xlsx' ):
         # Validation of input
         assert os.path.exists(path), f"Path {path} does not exist"
 
@@ -49,6 +51,8 @@ class ExcelSheet:
         
         # Recognition of the file : demand or time series
         if(len(sheets) ==1):
+            print("Excel with demand data detected")
+
             self.type_of_excel = "demands"
             self.data = pd.read_excel(self.path)
             self.szenario = szenario
@@ -63,6 +67,8 @@ class ExcelSheet:
 
         
         if (len(sheets) == 6): # time series excel sheet
+            print("Excel with time series detected")
+
             self.type_of_excel = "timeSeries"
             print("High data load: This might take some time")
             #cols = 0
@@ -96,7 +102,7 @@ class ExcelSheet:
                     
                 else:
                     self.getTS(list_NUTS3= self.allRegionsNuts3)
-
+            # TODO else: falls Ts excel als erstes eingelesen wurde, alle übernehmen und ggfs. bei 2. Einlesen demand namen daran anpassen
 
 
         #TODO mit shape[?] probieren
@@ -108,14 +114,12 @@ class ExcelSheet:
     def instantiate_nuts3(self):
         # Check if the Excel file lists the energy demand ('../data/ISI/web_nuts3_energietraeger.xlsx')
         if sorted(self.data.columns.values) == sorted(['Region', 'Szenario', 'Energieträger', 'Value', 'Jahr', 'Sektor']):
-            print("Excel with demand data detected")
             for index, row in self.data.iterrows():
                 # TODO : Vereinheitlichen! Auch hier nur die für self.year verwenden!
                 self.allRegionsNuts3.append(RegionNuts3(row))
 
-        
+        # Check if the Excel file is a time-series excel
         elif (self.data.columns[0] == 'year' and self.data.columns[1] == 'hour'):
-            print("Excel with time series detected")
             for col_name, col_data in self.data.iteritems():
                 # instantiate regions with ts ONLY for the year 2050, otherwise it's computionally too expensive 
                 if col_name != 'year' and col_name != 'hour':
@@ -243,19 +247,27 @@ class ExcelSheet:
         else:
             return False
 
-    def getRegionNames(self, data: list):
+    def getRegionNames(self, data = []):
         names = []
-        for idx, element in enumerate(data):
-            if type(element) != RegionNuts3:
-                print("wrong input data to getRegionNames! (Has to be list of RegionNuts3")
-            else:
-                names.append(element.name)
+        if len(data) == 0:
+            if self.type_of_excel == "demands":
+                for element in self.demandEl_list:
+                    names.append(element.name)
+            elif self.type_of_excel == "timeSeries":
+                for element in self.ts_list:
+                    names.append(element.name)
+        else:
+            for element in data:
+                if type(element) != RegionNuts3:
+                    print("wrong input data to getRegionNames()")
+                else:
+                    names.append(element.name)
         return names
 
 # Inheritance from class ExcelSheet which represents each NUTS3 region
 class RegionNuts3(ExcelSheet):
     # Constructor of the class
-    def __init__(self, row: pd.core.series.Series, path = '../data/ISI/web_nuts3_energietraeger.xlsx' ):
+    def __init__(self, row: pd.core.series.Series, path = '../data/web_nuts3_energietraeger.xlsx' ):
         # Call to super function to have access to all attributes / methods
         #super().__init__(
         #    path
@@ -306,48 +318,78 @@ class ClusteringData():
                 print("Clustering the demand of H2 and the demand of Electricity")
                 self.szenario = data.szenario
 
-                # Check if lists are sorted in the same way
-                names = []
-                arr = np.empty([len(data.demandEl_list),2], dtype = object)
-            
-                for idx, element in enumerate(data.demandEl_list):
-                    if element.name == data.demandH2_list[idx].name: # if its the same region at this index idx
-                        names.append(element.name)
-                        # H2 demand in column 0, arr[row][column]
-                        arr[idx][0] = data.demandH2_list[idx].value
-                        # Electricity demand in column 1
-                        arr[idx][1] = data.demandEl_list[idx].value
-                        # print(f"row {idx}: [{arr[idx,:]}] ")
-                    else: 
-                        print("The demand data of H2 and Electricity is not in the same order")
-                self.df_raw = pd.DataFrame(arr, columns=["H2", "Elec."], index=names)
-                self.namesNuts3 = names
+                self.builtDemandArr(data = data)
             
             elif data.type_of_excel == "timeSeries":
-                print("Attention: Add another ExcelSheet to enable the clustering!")
+                print("Attention: Add another ExcelSheet to ClusteringData() to enable the clustering!")
+
             
         elif type(data) == list:
             self.year = data[0].year 
             self.paths = []
             self.types_of_excel = []
 
-            for idx, element in enumerate(data):
-                if type(element) != ExcelSheet:
-                    print("Error: The input to Clustering Data has to be a list of ExcelSheet Objects!")
-                else:
+            if type(data[0]) != ExcelSheet:
+                print("Error: The input to Clustering Data has to be a list of ExcelSheet Objects!")
+            elif  data[0].type_of_excel != "demands":
+                print("Please load a demand file first")  # TODO: andere Reihenfolge evtl noch implementieren
+            else:
+                #data[0] is demand file:
+                self.paths.append(data[0].path)
+                self.types_of_excel.append(data[0].type_of_excel)
+                self.szenario = data[0].szenario
+                self.builtDemandArr(data=data[0])
+
+                namesOfReg = []
+                commonNames = data[0].getRegionNames() # Regions within demand excel file
+
+                # complete attributes by remaining Excelsheet-Objects stored in data
+                for idx, element in enumerate(data[1:]):
                     if element.year != self.year:
                         print("The year of interest is not the same in the ExcelSheets!")
-
-                    self.paths.append(element.path)
-                    self.types_of_excel.append(element.type_of_excel)
                     # TODO: compare regions of ExcelSheets and adapt them
-                    if(len()):
-                        print("Not the same amount of regions in the imported  excelfiles!")
-                        # identify and delete the regions that are not in all Excelsheets
-                        self.unifyReg()
+                    n1 = element.getRegionNames()
+                    commonNames = list(set(n1).intersection(commonNames))
+
+                    # TODO add regions to self.arr : if commonNames ==
+                    self.addRegions(element, commonNames) # TODO sort commonNames
+
+                    namesOfReg[idx]= element.getRegionNames()
+
+            commonNames = list(set(n1).intersection(n2))
+
+
 
         else:
             print("Wrong input to ClusteringData")
+
+
+    def builtDemandArr(self, data):
+        # Check if lists are sorted in the same way
+        names = []
+        arr = np.empty([len(data.demandEl_list), 2], dtype=object)
+
+        for idx, element in enumerate(data.demandEl_list):
+            if element.name == data.demandH2_list[idx].name:  # if its the same region at this index idx
+                names.append(element.name)
+                # H2 demand in column 0, arr[row][column]
+                arr[idx][0] = data.demandH2_list[idx].value
+                # Electricity demand in column 1
+                arr[idx][1] = data.demandEl_list[idx].value
+                # print(f"row {idx}: [{arr[idx,:]}] ")
+            else:
+                print("The demand data of H2 and Electricity is not in the same order")
+        self.df_raw = pd.DataFrame(arr, columns=["H2", "Elec."], index=names)
+        self.namesNuts3 = names
+
+
+    def all_equal(lst):
+        return not lst or lst.count(lst[0]) == len(lst)
+
+    def getCommonReg(self, data):
+
+        for idx, element in enumerate(data):
+            print("")
 
 
     def unifyReg(self):
@@ -356,7 +398,7 @@ class ClusteringData():
         print("Unify the clustering data to receive the regions that exist in all Excelfiles ...")
 
         notIncluded = 0
-        for idx, element in enumerate(self.data): 
+        for idx, element in enumerate(self.data):
             for indexEl, elementEl in enumerate(self.demandEl_list):
                 notIncluded = notIncluded + int(elementH2.name != elementEl.name)
               

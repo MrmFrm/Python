@@ -17,7 +17,7 @@ from classes import ClusteringData, ExcelSheet, RegionNuts3 # self implemented c
 startTime = time.time()
 
 # Create Object of Class ExcelSheet to import the data
-demandData = ExcelSheet('../data/ISI/web_nuts3_energietraeger.xlsx')
+demandData = ExcelSheet('../data/web_nuts3_energietraeger.xlsx')
 # Import the data of the excel table in demandData.data as a dataframe
 demandData.importData()
 # Access every single NUTS3 region via: demandData.allRegionsNuts3[1].excelRow
@@ -30,7 +30,7 @@ print('Execution time to import demand Data in min: ' + str(executionTime/60))
 startTime = time.time()
 
 # Create Object of Class ExcelSheet to import the data
-tsData_pvr = ExcelSheet('../data/ISI/EE-Knotenzeitreihen_pvr_37670.xlsx')
+tsData_pvr = ExcelSheet('../data/EE-Knotenzeitreihen_pvr_37670.xlsx')
 # Import the data of the excel table in tsData_pvr.data as a dataframe
 tsData_pvr.importData()
 # Access every single NUTS3 region via: tsData_pvr.allRegionsNuts3[1].excelRow

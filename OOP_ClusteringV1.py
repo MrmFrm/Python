@@ -10,12 +10,12 @@ import csv # import to read csv files
 from classes import ClusteringData, ExcelSheet, RegionNuts3 # self implemented classes, see classes.py
 
 # Create Object of Class ExcelSheet to import the data
-demandData = ExcelSheet('../data/ISI/web_nuts3_energietraeger.xlsx')
+demandData = ExcelSheet('../data/web_nuts3_energietraeger.xlsx')
 # Import the data of the excel table in demandData.data as a dataframe
 demandData.importData() # Default: year 2050, Szenario: H2
 # Access every single NUTS3 region via: demandData.allRegionsNuts3[1].excelRow
 
-# Creacte Object of Class ClusteringData to do the clustering.
+# Create Object of Class ClusteringData to do the clustering.
 cluData = ClusteringData(data = demandData)
 # Attributes of this class
 # Z.paths, Z.types_of_excel, Z.df_raw, Z.namesNuts3
