@@ -297,9 +297,10 @@ class ClusteringData():
     def __init__(self, data):
         # Input check # TODO!
         # lists_NUTS3 can either be ONE Excelsheet or a list of Excelsheets
-        self.year = data.year
         if type(data) == ExcelSheet:
             self.paths = data.path
+            self.year = data.year
+
             self.types_of_excel = data.type_of_excel
             if data.type_of_excel == "demands":
                 print("Clustering the demand of H2 and the demand of Electricity")
@@ -326,18 +327,56 @@ class ClusteringData():
                 print("Attention: Add another ExcelSheet to enable the clustering!")
             
         elif type(data) == list:
+            self.year = data[0].year 
+            self.paths = []
+            self.types_of_excel = []
+
             for idx, element in enumerate(data):
                 if type(element) != ExcelSheet:
                     print("Error: The input to Clustering Data has to be a list of ExcelSheet Objects!")
                 else:
+                    if element.year != self.year:
+                        print("The year of interest is not the same in the ExcelSheets!")
+
                     self.paths.append(element.path)
                     self.types_of_excel.append(element.type_of_excel)
                     # TODO: compare regions of ExcelSheets and adapt them
+                    if(len()):
+                        print("Not the same amount of regions in the imported  excelfiles!")
+                        # identify and delete the regions that are not in all Excelsheets
+                        self.unifyReg()
+
         else:
             print("Wrong input to ClusteringData")
 
 
-       
+    def unifyReg(self):
+    #TODO test if this method works properly!
+        resulting_list = []
+        print("Unify the clustering data to receive the regions that exist in all Excelfiles ...")
+
+        notIncluded = 0
+        for idx, element in enumerate(self.data): 
+            for indexEl, elementEl in enumerate(self.demandEl_list):
+                notIncluded = notIncluded + int(elementH2.name != elementEl.name)
+              
+            if (notIncluded == len(self.demandEl_list)):
+                self.demandH2_list.pop(indexH2)
+                print(f"    - region {elementH2.name} deleted, since no value of electricity demand was available for it.")
+              
+            notIncluded = 0
+
+        #put the demand list in the same order
+        self.demandEl_list.sort(key=lambda e: e.name)
+        self.demandH2_list.sort(key=lambda e: e.name)
+
+            
+        if (len(self.demandEl_list) == len(self.demandH2_list)):
+            print("Demand data successfully unified ")
+        else:
+            print("Still inconsistancies in the demand data!")
+        
+
 
             
 

@@ -24,6 +24,7 @@ demandData.importData()
 # Access of filtered NUTS3 regions (year, szenario) via: demandData.demandEl_list[0] or demandData.demandH2_list
 executionTime = (time.time() - startTime)
 print('Execution time to import demand Data in min: ' + str(executionTime/60))
+# 0.185 Minutes
 
 # Measure runtime
 startTime = time.time()
@@ -35,12 +36,12 @@ tsData_pvr.importData()
 # Access every single NUTS3 region via: tsData_pvr.allRegionsNuts3[1].excelRow
 executionTime = (time.time() - startTime)
 print('Execution time to import time series Data in min: ' + str(executionTime/60))
-
+# Private Laptop: 11.8 Minutes 
 
 
 
 # Inputregions: 
-input_list = [demandData.allRegionsNuts3, tsData_pvr.allRegionsNuts3]
+input_list = [demandData, tsData_pvr]
 cluData2 = ClusteringData(input_list)
 #TODO: Year=2050 input in importData verschieben, damit konsistent
 
@@ -49,7 +50,8 @@ Z = cluData2.calculateCluster()
 cluData2.plot(Z, type="dendogram")
 #TODO ob Daten noch gleich sind wie vorher
 
-
+# TODO: Test, if only one Input (e.g. timeseries)
+# TODO: Test, if two inputs!
 
 
 
