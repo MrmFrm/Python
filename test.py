@@ -1,16 +1,14 @@
-print("hello world")
+import numpy as np # library adding support for large, multi-dimensional arrays and matrices
+import os # to read (or write in) files
+import csv # import to read csv files
+import time
 
-def crazyfunction(a): 
-    print(f"test {a}")
-b=10
-crazyfunction(b)
+from classes import ClusteringData, ExcelSheet, RegionNuts3 # self implemented classes, see classes.py
 
-print(crazyfunction)
 
-name = 'Miriam' #str
-alter = 25 #int
-stadt = "Karlsruhe"
-print("test")
-print("Mein Name ist " + name +".")
-print("Ich bin " + str(alter) + " Jahre alt.")
-print("Zurzeit wohne ich in " + stadt + ".")
+demandData = ExcelSheet('../data/web_nuts3_energietraeger.xlsx')
+demandData.importData()
+cluData1 = ClusteringData(demandData)
+Z = cluData1.calculateCluster()
+cluData1.plot(Z, type="dendogram")
+print("")

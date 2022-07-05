@@ -156,6 +156,7 @@ fancy_dendrogram(
     max_d=max_d,  # plot a horizontal cut-off line
 )
 plt.show()
+plt.savefig("testfig.jpg")
 
 fancy_dendrogram(
     Z,

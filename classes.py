@@ -1,4 +1,5 @@
 from sklearn.preprocessing import StandardScaler #py -m pip install sklearn
+from sklearn import preprocessing
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 
@@ -52,6 +53,7 @@ class ExcelSheet:
         # Recognition of the file : demand or time series
         if(len(sheets) ==1):
             print("Excel with demand data detected")
+            #TODO hier einen aufwändigeren Format-Check durchführen
 
             self.type_of_excel = "demands"
             self.data = pd.read_excel(self.path)
@@ -68,14 +70,14 @@ class ExcelSheet:
         
         if (len(sheets) == 6): # time series excel sheet
             print("Excel with time series detected")
+            #TODO hier einen aufwändigeren Format-Check durchführen
+
 
             self.type_of_excel = "timeSeries"
-            print("High data load: This might take some time")
-            #cols = 0
+            print("High data load: This might take some time (~4 min)")
             allData = pd.DataFrame()
             for idx, sheetname in enumerate(sheets):
                 df = pd.read_excel(self.path, sheet_name=sheetname)
-                #cols += df.shape[1]
                 if idx == 0:
                     allData = df
                 else:
@@ -153,10 +155,6 @@ class ExcelSheet:
 
         # Compare and unify regions of H2 demand and Elecricity demand:
         self.unifyReg()
-
-
-
-
     # This method puts together the values (demands) of two rows in the demand-Excel, if they are given for the same region
     # The demands of this regions are added
     # Reason: In the Excelsheet for H2 + Electricity demands, H2 has two entries for each region (sector: 1x Verkehr, 1x Andere)
@@ -185,22 +183,29 @@ class ExcelSheet:
         resulting_list = []
         print("Unify the demand data to get the same amount of values ...")
 
-        notIncluded = 0
-        for indexH2, elementH2 in enumerate(self.demandH2_list): 
-            for indexEl, elementEl in enumerate(self.demandEl_list):
-                notIncluded = notIncluded + int(elementH2.name != elementEl.name)
-              
-            if (notIncluded == len(self.demandEl_list)):
-                self.demandH2_list.pop(indexH2)
-                print(f"    - region {elementH2.name} deleted, since no value of electricity demand was available for it.")
-              
-            notIncluded = 0
-
-        #put the demand list in the same order
+        # put the demand list in the same order
         self.demandEl_list.sort(key=lambda e: e.name)
         self.demandH2_list.sort(key=lambda e: e.name)
 
-            
+        n0 = self.getRegionNames(data=self.demandEl_list)
+        n1 = self.getRegionNames(data=self.demandH2_list)
+        commonNames = list(set(n0).intersection(n1))
+        commonNames.sort()
+
+        arr = np.empty([len(commonNames), 2], dtype=object)
+
+        for idx, elementH2 in enumerate(self.demandH2_list):
+            if elementH2.name  not in commonNames:
+                self.demandH2_list.pop(idx)
+                print(f"    - region {elementH2.name} deleted, since no value of electricity demand was available for it.")
+
+
+        for idx, element in enumerate(self.demandEl_list):
+            if element.name not in commonNames:  # if its the same region at this index idx
+                self.demandEl_list.pop(idx)
+                print(f"    - region {element.name} deleted, since no value of H2 demand was available for it.")
+
+
         if (len(self.demandEl_list) == len(self.demandH2_list)):
             print("Demand data successfully unified ")
         else:
@@ -225,10 +230,6 @@ class ExcelSheet:
                         self.ts_list.append(element)
                                 
         self.ts_list.sort(key=lambda e: e.name)
-        
-
-   
-
     def removeSpace(self, string: str):
         return string.replace(" ", "")
 
@@ -312,16 +313,16 @@ class ClusteringData():
         if type(data) == ExcelSheet:
             self.paths = data.path
             self.year = data.year
-
             self.types_of_excel = data.type_of_excel
+
             if data.type_of_excel == "demands":
                 print("Clustering the demand of H2 and the demand of Electricity")
                 self.szenario = data.szenario
+                self.df_raw, self.namesNuts3 = self.builtDemandArr(data)
 
-                self.builtDemandArr(data = data)
             
             elif data.type_of_excel == "timeSeries":
-                print("Attention: Add another ExcelSheet to ClusteringData() to enable the clustering!")
+                print("Attention: Add another ExcelSheet to ClusteringData() to enable the clustering!") # TODO exit the function here: Dont create a ClusteringData Object
 
             
         elif type(data) == list:
@@ -332,56 +333,98 @@ class ClusteringData():
             if type(data[0]) != ExcelSheet:
                 print("Error: The input to Clustering Data has to be a list of ExcelSheet Objects!")
             elif  data[0].type_of_excel != "demands":
-                print("Please load a demand file first")  # TODO: andere Reihenfolge evtl noch implementieren
+                print("Please load a demand file first")  # TODO: andere Reihenfolge evtl. noch implementieren
             else:
                 #data[0] is demand file:
                 self.paths.append(data[0].path)
                 self.types_of_excel.append(data[0].type_of_excel)
                 self.szenario = data[0].szenario
-                self.builtDemandArr(data=data[0])
+                self.df_raw, self.namesNuts3 = self.builtDemandArr(data[0])
+
 
                 namesOfReg = []
-                commonNames = data[0].getRegionNames() # Regions within demand excel file
+                commonNames = self.namesNuts3 # Regions within demand excel file
 
                 # complete attributes by remaining Excelsheet-Objects stored in data
-                for idx, element in enumerate(data[1:]):
-                    if element.year != self.year:
-                        print("The year of interest is not the same in the ExcelSheets!")
-                    # TODO: compare regions of ExcelSheets and adapt them
-                    n1 = element.getRegionNames()
-                    commonNames = list(set(n1).intersection(commonNames))
+                for idx, element in enumerate(data[1:]):# TODO check this loop when loading multiple files!
+                    self.paths.append(element.path)
+                    self.types_of_excel.append(element.type_of_excel)
+                    self.add_region2Clu(element, self.namesNuts3)
 
-                    # TODO add regions to self.arr : if commonNames ==
-                    self.addRegions(element, commonNames) # TODO sort commonNames
-
-                    namesOfReg[idx]= element.getRegionNames()
-
-            commonNames = list(set(n1).intersection(n2))
-
-
-
+                #self.namesNuts3 = commonNames
         else:
             print("Wrong input to ClusteringData")
 
+        print(f"Creation of object of class {self.__class__.__name__} successful")
+
+    # Method definition
+    def completeRegions(self, data: ExcelSheet, names: list):
+        if data.type_of_excel == "timeSeries":
+            st = set(names)  # set(commonNames)
+            # TODO das alles hier nur machen, wenn Regions inkonsistent (Abfrage einfügen)
+            # identify regions, that are not in both Excelfiles
+            names_notIncl1 = [e for e in self.namesNuts3 if e not in st]  # check in self.namesNuts 3, which contains all regions of the demand file, ONLY IN DEMAND FILE
+            names_notIncl2 = [e for e in data.getRegionNames() if e not in st]  # check in data, which contains all regions of the second/third/... Excelfile, ONLY IN TS FILE
+
+            # Keep those regions, drop the others
+            for i in names_notIncl1:
+                print(f"    - region {i} deleted, since this region is not included in all files.")
+            for i in names_notIncl2:
+                print(f"    - region {i} deleted, since no time series was available for it.")
+
+            # Complete Regions that are included in all files with data from all files:
+            #idx1 = [i for i, e in enumerate(self.namesNuts3) if e in st]
+            arr1 = self.df_raw.loc[names] # update array with updated regions, commonNames TODO hier fehlermeldung bei wind Reg.229 sollte rausfallen
+
+            #TODO funtionalität hier prüfen, wenn mehrere files geladen!, Funktionalität single file auch überprüfen
+            # fill time series list
+            # arr2 = np.empty([len(names),8760], dtype=object) # check this! shape[0]
+            lst = []
+            for idx, element in enumerate(data.ts_list):
+                if data.ts_list[idx].name in st:
+                    lst.append(data.ts_list[idx].timeSeries)
+            self.df_raw = pd.concat((arr1, pd.DataFrame(lst)), axis = 1)
+            self.namesNuts3 = names # update the commonNames
+
+
+        else:
+            print("Within ClusteringData.completeRegions() : Not implemented yet")
+
+    def add_region2Clu(self, data: ExcelSheet, commonNames):
+        if data.year != self.year:
+            print("The year of interest is not the same in the ExcelSheets!")
+        # Regions of this Excelfile
+        n1 = data.getRegionNames()
+        newNames = list(set(n1).intersection(commonNames))
+        newNames.sort()
+
+        # TODO add regions to self.arr : if commonNames ==
+        self.completeRegions(data, newNames)
 
     def builtDemandArr(self, data):
-        # Check if lists are sorted in the same way
-        names = []
-        arr = np.empty([len(data.demandEl_list), 2], dtype=object)
+        # find common names in h2 list and el. list
+        n0 = data.getRegionNames(data=data.demandEl_list)
+        n1 = data.getRegionNames(data=data.demandH2_list)
+        commonNames = list(set(n0).intersection(n1))
+        commonNames.sort()
 
-        for idx, element in enumerate(data.demandEl_list):
-            if element.name == data.demandH2_list[idx].name:  # if its the same region at this index idx
-                names.append(element.name)
+        arr = np.empty([len(commonNames), 2], dtype=object)
+
+        for idx, elementH2 in enumerate(data.demandH2_list):
+
+            if elementH2.name in commonNames:
                 # H2 demand in column 0, arr[row][column]
                 arr[idx][0] = data.demandH2_list[idx].value
+
+        for idx, element in enumerate(data.demandEl_list):
+            if element.name in commonNames:  # if its the same region at this index idx
+
                 # Electricity demand in column 1
                 arr[idx][1] = data.demandEl_list[idx].value
                 # print(f"row {idx}: [{arr[idx,:]}] ")
-            else:
-                print("The demand data of H2 and Electricity is not in the same order")
-        self.df_raw = pd.DataFrame(arr, columns=["H2", "Elec."], index=names)
-        self.namesNuts3 = names
 
+
+        return pd.DataFrame(arr, columns=["H2", "Elec."], index=commonNames), commonNames
 
     def all_equal(lst):
         return not lst or lst.count(lst[0]) == len(lst)
@@ -391,84 +434,17 @@ class ClusteringData():
         for idx, element in enumerate(data):
             print("")
 
-
-    def unifyReg(self):
-    #TODO test if this method works properly!
-        resulting_list = []
-        print("Unify the clustering data to receive the regions that exist in all Excelfiles ...")
-
-        notIncluded = 0
-        for idx, element in enumerate(self.data):
-            for indexEl, elementEl in enumerate(self.demandEl_list):
-                notIncluded = notIncluded + int(elementH2.name != elementEl.name)
-              
-            if (notIncluded == len(self.demandEl_list)):
-                self.demandH2_list.pop(indexH2)
-                print(f"    - region {elementH2.name} deleted, since no value of electricity demand was available for it.")
-              
-            notIncluded = 0
-
-        #put the demand list in the same order
-        self.demandEl_list.sort(key=lambda e: e.name)
-        self.demandH2_list.sort(key=lambda e: e.name)
-
-            
-        if (len(self.demandEl_list) == len(self.demandH2_list)):
-            print("Demand data successfully unified ")
-        else:
-            print("Still inconsistancies in the demand data!")
-        
-
-
-            
-
-
-            
-        #elif all(isinstance(elem, RegionNuts3) for elem in lists_NUTS3):
-            # This checks, if only one list is given --> I
-            # e.g. this is the case, if only the demand data should be clustered
-            # if list of demands
-                #if len(list_element.excelRow) != 8760:# if excelfile.?.type=="demand"
-
-
-                    
-
-                    # Actions to execute when an object of this class is created
-                    # Fill lists that should be used for the clustering
-                    #if demandH2 == True or demandEl == True:
-                    #self.getDemands(list_element)
-                #else:
-                    #if timeSeries == True:
-                    #print("function for timeseries not implemented yet")
-                    #self.ts_list = []
-                    #self.getTS(list_element)
-
-        #for idx, list_element in enumerate(lists_NUTS3):
-        #    #TODO Input check 
-
-        #    if type(list_element) != list:
-        #        print("The input data for ClusteringData has to be a list of lists (of RegionNuts3 Objects)")
-        #    elif type(list_element) == RegionNuts3:
-        #        print("The input data for ClusteringData is a list of RegionsNuts3")
-
-                
-
-        print(f"Creation of object of class {self.__class__.__name__} successful")
-    
-
-    # Method definition
-
     def calculateCluster(self):
         # fill array with data
-        arr = [] # parameters to cluster are listed in the columns
+        #arr = [] # parameters to cluster are listed in the columns
 
         #if self.demandEl == True and self.demandH2 == True:
-        if type(self.types_of_excel) == str: # this means that only one file is loaded, otherwise this would be a list
-            arr = self.df_raw.to_numpy()
+        #if type(self.types_of_excel) == str: # this means that only one file is loaded, otherwise this would be a list
+            #arr = self.df_raw.to_numpy()
 
-        else:
-            #TODO add for multiple files!
-            pass
+        #else:
+            #TODO add for multiple files! If Abfrage kann raus
+        arr = self.df_raw.to_numpy()
 
         
 
@@ -476,8 +452,10 @@ class ClusteringData():
         scaler = StandardScaler()
         scaler.fit(arr)
         arr_scaled = scaler.transform(arr)
+        self.df_scaled = pd.DataFrame(arr_scaled, index=self.namesNuts3)
 
-        self.df_scaled = pd.DataFrame(arr_scaled, columns=["H2", "Elec."], index=self.namesNuts3)
+
+
 
         
 
@@ -486,7 +464,7 @@ class ClusteringData():
 
         # Generate the linkage matrix to perform Hierarchical Clustering            # The input y may be either a 1-D condensed distance matrix or a 2-D array of observation vectors.
         # 'ward' = Ward variance minimization algorithm, bottom-up
-        Z = linkage(arr_scaled, 'ward')
+        Z = linkage(self.df_scaled, 'ward')
         # Z[0]: [idx1, idx2, dist, sample_count]
 
         return Z
@@ -499,10 +477,7 @@ class ClusteringData():
         else:
             print("calculateCluster not implemented yet for this inpute combination")
 
-              
-        
-        
-    def plot(self, clusteringData, criterion = 'null', max_d = 0, k = 0, type= "dendogram", truncated = 12,*args, **kwargs):
+    def plot(self, clusteringData, criterion = 'null', max_d = 0, k = 0, type= "dendogram", truncated = 12, *args, **kwargs):
         # The year and the szenario are printed above each plot
         plt.figure()
         if "demands" in self.types_of_excel:
@@ -511,6 +486,7 @@ class ClusteringData():
             plt.suptitle(f'year: {self.year}', fontsize = 5)
            
         # Input validation
+        # TODO input "criterion" löschen
         if criterion == 'distance' and max_d <= 0:
             print("Choose a distance (max_d > 0) to plot the clustering")
         elif criterion == 'distance' and max_d > 0:
@@ -546,6 +522,7 @@ class ClusteringData():
                         plt.figtext(0.5,0.01, f"maximal distance = {max_d}, resulting number of clusters = {n} ", ha="center", va="center", fontsize=8)
 
                     plt.scatter(self.df_scaled["H2"], self.df_scaled["Elec."], c=clusters, cmap='prism')  # plot points with cluster dependent colors
+                    plt.savefig("test_savefig.jpg")
                 else: 
                     print ("Check input of the clusteringData.plot function")
         elif type == "dendogram":
@@ -557,7 +534,7 @@ class ClusteringData():
             dendrogram(
                 clusteringData,
                 leaf_rotation=90.,  # rotates the x axis labels
-                leaf_font_size=5.,  # font size for the x axis labels
+                leaf_font_size=8.,  # font size for the x axis labels
                 labels=self.df_scaled.index, 
             )
             if max_d:
@@ -572,8 +549,10 @@ class ClusteringData():
                 p = truncated,  # show only the last p merged clusters
                 show_leaf_counts = False,  # otherwise numbers in brackets are counts
                 leaf_rotation = 90.,
-                leaf_font_size = 12.,
+                leaf_font_size = 10.,
                 show_contracted = True,  # to get a distribution impression in truncated branches
+                labels=self.df_scaled.index,
+
                 #show_leaf_counts=False
             )
             if max_d:
@@ -585,9 +564,11 @@ class ClusteringData():
                     truncate_mode='lastp',
                     p=12,
                     leaf_rotation=90.,
-                    leaf_font_size=12.,
+                    leaf_font_size=10.,
                     show_contracted=True,
                     annotate_above=10,  # useful in small plots so annotations don't overlap
+                    labels=self.df_scaled.index,
+
                 )
             else:
                 self.fancy_dendogram(
@@ -596,15 +577,15 @@ class ClusteringData():
                     truncate_mode='lastp',
                     p=12,
                     leaf_rotation=90.,
-                    leaf_font_size=12.,
+                    leaf_font_size=10.,
                     show_contracted=True,
                     annotate_above=10,  # useful in small plots so annotations don't overlap
+                    labels=self.df_scaled.index,
+
                 )
-        plt.show(block=False)   
-                       
-
-        
-
+        #plt.show(block=False)
+        #plt.show()
+        plt.savefig(f"Clustering_{type}.jpg")
 
     def fancy_dendogram(self, *args, **kwargs):
             max_d = kwargs.pop('max_d', None)
@@ -642,6 +623,7 @@ class ClusteringData():
      
 
     def exportCluster(self):
+        #TODO!
         pass
         
 

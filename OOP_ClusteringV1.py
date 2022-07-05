@@ -26,6 +26,8 @@ Z = cluData.calculateCluster()
 
 # Plot the Clustering in different ways
 cluData.plot(Z, type="2D")
+
+
 cluData.plot(Z, type="2D", criterion = 'distance', max_d = 7) # define maximum distance 
 cluData.plot(Z, type="2D", criterion = 'maxclust',  k = 10) # define number of clusters
 
